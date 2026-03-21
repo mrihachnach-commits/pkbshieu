@@ -1,0 +1,206 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    // Collection: users
+    // Fields: uid (string), email (string), displayName (string), role (string), status (string)
+    //
+    // Collection: products
+    // Fields: name (string), category (string), brand (string), sku (string), costPrice (number), sellingPrice (number), stockQuantity (number)
+    //
+    // Collection: customers
+    // Fields: name (string), phone (string), email (string), address (string), totalSpent (number)
+    //
+    // Collection: sales
+    // Fields: customerId (string), customerName (string), items (list), totalAmount (number), paymentMethod (string), date (timestamp), createdBy (string), updatedBy (string), history (list)
+    //
+    // Collection: purchases
+    // Fields: supplierId (string), supplierName (string), items (list), totalAmount (number), invoiceUrl (string), date (timestamp), createdBy (string), updatedBy (string), history (list)
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (
+          request.auth.token.email == "bshieumat@gmail.com" ||
+          request.auth.token.email == "mrihachnach@gmail.com" ||
+          request.auth.token.email == "hoanghiep1296@gmail.com" ||
+          request.auth.token.email == "nguyenhiep.drts@gmail.com" ||
+          request.auth.token.email == "admin@admin.com" ||
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+        );
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin';
+    }
+
+    function isManager() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'manager';
+    }
+
+    function isStaff() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'staff';
+    }
+
+    function canAccessWarehouse(warehouse) {
+      return isAdmin() || isSuperAdmin() || ((isManager() || isStaff()) && warehouse == 'general');
+    }
+
+    function canEditWarehouse(warehouse) {
+      return isAdmin() || isSuperAdmin() || (isManager() && warehouse == 'general');
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role', 'status', 'createdAt']) &&
+             data.role in ['admin', 'super_admin', 'manager', 'staff'] &&
+             data.status in ['active', 'inactive'] &&
+             data.email is string && data.email.size() < 100 &&
+             data.uid is string && data.uid.size() < 50 &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() < 100));
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll(['name', 'sku', 'costPrice', 'sellingPrice', 'stockQuantity', 'warehouse']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 200 &&
+             data.sku is string && data.sku.size() > 0 && data.sku.size() < 50 &&
+             data.costPrice is number && data.costPrice >= 0 &&
+             data.sellingPrice is number && data.sellingPrice >= 0 &&
+             data.stockQuantity is number &&
+             data.warehouse in ['main', 'general'] &&
+             (!('category' in data) || (data.category is string && data.category.size() < 100)) &&
+             (!('brand' in data) || (data.brand is string && data.brand.size() < 100)) &&
+             (!('description' in data) || (data.description is string && data.description.size() < 2000)) &&
+             (!('createdAt' in data) || (data.createdAt is string));
+    }
+
+    function isValidCustomer(data) {
+      return data.keys().hasAll(['name', 'phone']) &&
+             data.name is string && data.name.size() < 100 &&
+             data.phone is string && data.phone.size() < 20;
+    }
+
+    function isValidSupplier(data) {
+      return data.keys().hasAll(['name']) &&
+             data.name is string && data.name.size() < 100;
+    }
+
+    function isValidSale(data) {
+      return data.keys().hasAll(['customerName', 'items', 'totalAmount', 'warehouse']) &&
+             data.customerName is string && data.customerName.size() < 100 &&
+             data.items is list && data.items.size() > 0 &&
+             data.totalAmount is number &&
+             data.warehouse in ['main', 'general'] &&
+             (!('date' in data) || (data.date is string)) &&
+             (!('createdBy' in data) || (data.createdBy is string)) &&
+             (!('status' in data) || (data.status in ['completed', 'cancelled']));
+    }
+
+    function isValidPurchase(data) {
+      return data.keys().hasAll(['supplierName', 'items', 'totalAmount', 'warehouse']) &&
+             data.supplierName is string && data.supplierName.size() < 100 &&
+             data.items is list && data.items.size() > 0 &&
+             data.totalAmount is number &&
+             data.warehouse in ['main', 'general'] &&
+             (!('date' in data) || (data.date is string)) &&
+             (!('createdBy' in data) || (data.createdBy is string)) &&
+             (!('status' in data) || (data.status in ['completed', 'cancelled']));
+    }
+
+    function isValidPrescription(data) {
+      return data.keys().hasAll(['customerId', 'date']) &&
+             data.customerId is string &&
+             data.date is string;
+    }
+
+    // Rules
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin() || isSuperAdmin());
+      allow create: if isAuthenticated() && (request.auth.uid == userId || isAdmin()) && isValidUser(request.resource.data);
+      allow update: if isAuthenticated() && (isAdmin() || (request.auth.uid == userId && request.resource.data.role == resource.data.role)) &&
+                    isValidUser(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /settings/permissions {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /products/{productId} {
+      allow read: if isAuthenticated() && canAccessWarehouse(resource.data.warehouse);
+      allow create: if isAuthenticated() && canAccessWarehouse(request.resource.data.warehouse) &&
+                    isValidProduct(request.resource.data);
+      allow update: if isAuthenticated() && canEditWarehouse(resource.data.warehouse) &&
+                    canEditWarehouse(request.resource.data.warehouse) &&
+                    isValidProduct(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /customers/{customerId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidCustomer(request.resource.data);
+      allow update: if isAuthenticated() && (isAdmin() || isSuperAdmin() || isManager()) && isValidCustomer(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /suppliers/{supplierId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidSupplier(request.resource.data);
+      allow update: if isAuthenticated() && (isAdmin() || isSuperAdmin() || isManager()) && isValidSupplier(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /sales/{saleId} {
+      allow read: if isAuthenticated() && canAccessWarehouse(resource.data.warehouse);
+      allow create: if isAuthenticated() && canAccessWarehouse(request.resource.data.warehouse) &&
+                    isValidSale(request.resource.data);
+      allow update: if isAuthenticated() && canEditWarehouse(resource.data.warehouse) &&
+                    canEditWarehouse(request.resource.data.warehouse) &&
+                    isValidSale(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /purchases/{purchaseId} {
+      allow read: if isAuthenticated() && canAccessWarehouse(resource.data.warehouse);
+      allow create: if isAuthenticated() && canAccessWarehouse(request.resource.data.warehouse) &&
+                    isValidPurchase(request.resource.data);
+      allow update: if isAuthenticated() && canEditWarehouse(resource.data.warehouse) &&
+                    canEditWarehouse(request.resource.data.warehouse) &&
+                    isValidPurchase(request.resource.data);
+      allow delete: if isAdmin();
+    }
+    
+    match /prescriptions/{prescriptionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidPrescription(request.resource.data);
+      allow update: if isAuthenticated() && (isAdmin() || isSuperAdmin() || isManager()) && isValidPrescription(request.resource.data);
+      allow delete: if isAdmin();
+    }
+    
+    match /_connection_test_/{docId} {
+      allow read: if true;
+    }
+
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

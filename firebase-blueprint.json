@@ -1,0 +1,126 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User account information and roles",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "super_admin", "manager", "staff"] },
+        "status": { "type": "string", "enum": ["active", "inactive"] }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Eyewear product details",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "brand": { "type": "string" },
+        "sku": { "type": "string" },
+        "costPrice": { "type": "number" },
+        "sellingPrice": { "type": "number" },
+        "warehouse": { "type": "string", "enum": ["main", "general"] },
+        "stockQuantity": { "type": "number" },
+        "description": { "type": "string" }
+      },
+      "required": ["name", "sku", "costPrice", "sellingPrice", "stockQuantity", "warehouse"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Customer information",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "address": { "type": "string" },
+        "totalSpent": { "type": "number" }
+      },
+      "required": ["name", "phone"]
+    },
+    "Supplier": {
+      "title": "Supplier",
+      "description": "Supplier information",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "contactPerson": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "address": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "Sale": {
+      "title": "Sale",
+      "description": "Sales transaction",
+      "type": "object",
+      "properties": {
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "items": { "type": "array" },
+        "totalAmount": { "type": "number" },
+        "warehouse": { "type": "string", "enum": ["main", "general"] },
+        "paymentMethod": { "type": "string", "enum": ["cash", "transfer"] },
+        "date": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "history": { "type": "array" }
+      },
+      "required": ["totalAmount", "paymentMethod", "date", "items", "warehouse"]
+    },
+    "Purchase": {
+      "title": "Purchase",
+      "description": "Inventory purchase transaction",
+      "type": "object",
+      "properties": {
+        "supplierId": { "type": "string" },
+        "supplierName": { "type": "string" },
+        "items": { "type": "array" },
+        "totalAmount": { "type": "number" },
+        "warehouse": { "type": "string", "enum": ["main", "general"] },
+        "invoiceUrl": { "type": "string" },
+        "invoiceImages": { "type": "array" },
+        "date": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "history": { "type": "array" }
+      },
+      "required": ["totalAmount", "date", "items", "warehouse"]
+    },
+    "Prescription": {
+      "title": "Prescription",
+      "description": "Eye prescription details",
+      "type": "object",
+      "properties": {
+        "customerId": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "od_sph": { "type": "string" },
+        "od_cyl": { "type": "string" },
+        "od_axis": { "type": "string" },
+        "od_add": { "type": "string" },
+        "os_sph": { "type": "string" },
+        "os_cyl": { "type": "string" },
+        "os_axis": { "type": "string" },
+        "os_add": { "type": "string" },
+        "pd": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["customerId", "date"]
+    }
+  },
+  "firestore": {
+    "users": { "schema": "User", "description": "Collection of users" },
+    "products": { "schema": "Product", "description": "Collection of products" },
+    "customers": { "schema": "Customer", "description": "Collection of customers" },
+    "suppliers": { "schema": "Supplier", "description": "Collection of suppliers" },
+    "sales": { "schema": "Sale", "description": "Collection of sales" },
+    "purchases": { "schema": "Purchase", "description": "Collection of purchases" },
+    "prescriptions": { "schema": "Prescription", "description": "Collection of eye prescriptions" }
+  }
+}

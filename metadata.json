@@ -1,0 +1,7 @@
+{
+  "name": "OptiManager - BS Hiệu",
+  "description": "Phần mềm quản lý bán hàng kính mắt với tính năng quét hóa đơn AI, gộp sản phẩm thông minh và lưu trữ hóa đơn dưới dạng hình ảnh.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
