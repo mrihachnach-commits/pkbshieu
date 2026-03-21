@@ -436,7 +436,10 @@ export default function Inventory() {
           <p className="text-slate-500">Quản lý danh sách sản phẩm và hàng tồn kho cũ.</p>
         </div>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            resetForm();
+            setIsModalOpen(true);
+          }}
           className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl transition-all shadow-lg shadow-indigo-100"
         >
           <Plus className="w-5 h-5" />

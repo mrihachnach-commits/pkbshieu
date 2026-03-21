@@ -272,6 +272,7 @@ export default function Users() {
         <button 
           onClick={() => {
             if (currentUserRole !== 'admin') return alert('Chỉ Admin mới có quyền thêm thành viên');
+            resetForm();
             setIsModalOpen(true);
           }}
           className={cn(
@@ -352,9 +353,11 @@ export default function Users() {
                         </button>
                         <button 
                           onClick={() => {
+                            setEditingUser(user);
                             setFormData({
                               displayName: user.displayName || '',
                               email: user.email || '',
+                              password: '',
                               role: user.role || 'staff',
                               status: user.status || 'active'
                             });

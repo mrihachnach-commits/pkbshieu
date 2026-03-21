@@ -214,7 +214,11 @@ export default function Customers() {
           <p className="text-slate-500">Quản lý thông tin khách hàng và đơn thuốc.</p>
         </div>
         <button 
-          onClick={() => setIsCustomerModalOpen(true)}
+          onClick={() => {
+            setEditingCustomer(null);
+            setCustomerForm({ name: '', phone: '', email: '', address: '' });
+            setIsCustomerModalOpen(true);
+          }}
           className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl transition-all shadow-lg shadow-indigo-100"
         >
           <Plus className="w-5 h-5" />
