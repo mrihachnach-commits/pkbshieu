@@ -71,6 +71,7 @@ export default function Sales() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [productSearchTerm, setProductSearchTerm] = useState('');
   const [warehouseFilter, setWarehouseFilter] = useState<'all' | 'main' | 'general'>('all');
   const [deletingSale, setDeletingSale] = useState<Sale | null>(null);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
@@ -406,6 +407,7 @@ export default function Sales() {
     setSelectedItems([]);
     setPaymentMethod('cash');
     setSaleDate(toLocalISOString());
+    setProductSearchTerm('');
   };
 
   const handleDeleteSale = async () => {
@@ -942,13 +944,15 @@ export default function Sales() {
                     <input 
                       type="text" 
                       placeholder="Tìm sản phẩm..."
+                      value={productSearchTerm}
+                      onChange={(e) => setProductSearchTerm(e.target.value)}
                       className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none"
                     />
                   </div>
                   <div className="space-y-2 max-h-[300px] overflow-auto pr-2">
                     {products
                       .filter(p => p.warehouse === selectedWarehouse)
-                      .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.sku?.toLowerCase().includes(searchTerm.toLowerCase()))
+                      .filter(p => p.name.toLowerCase().includes(productSearchTerm.toLowerCase()) || p.sku?.toLowerCase().includes(productSearchTerm.toLowerCase()))
                       .map(p => (
                         <button
                           key={p.id}
