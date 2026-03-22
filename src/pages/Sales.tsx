@@ -83,6 +83,8 @@ export default function Sales() {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('cash');
   const [saleDate, setSaleDate] = useState(toLocalISOString());
   const [products, setProducts] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
   const [selectedWarehouse, setSelectedWarehouse] = useState<'main' | 'general'>('general');
 
   useEffect(() => {
@@ -104,11 +106,20 @@ export default function Sales() {
     if (role === 'manager' || role === 'staff') {
       productsQuery = query(productsQuery, where('warehouse', '==', 'general'));
     }
-    getDocs(productsQuery).then(snapshot => {
+    const unsubscribeProducts = onSnapshot(productsQuery, (snapshot) => {
       setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
-    return () => unsubscribe();
+    // Fetch customers for selection
+    const unsubscribeCustomers = onSnapshot(collection(db, 'customers'), (snapshot) => {
+      setCustomers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    return () => {
+      unsubscribe();
+      unsubscribeProducts();
+      unsubscribeCustomers();
+    };
   }, []);
 
   const handleCreateSale = async (e: React.FormEvent) => {
@@ -116,25 +127,29 @@ export default function Sales() {
     if (selectedItems.length === 0) return alert('Vui lòng chọn ít nhất 1 sản phẩm');
 
     const totalAmount = selectedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const trimmedName = customerName.trim();
+    const trimmedPhone = customerPhone.trim();
     
     try {
       // 1. Pre-process customer OUTSIDE transaction
-      const customerQuery = query(collection(db, 'customers'), where('phone', '==', customerPhone));
+      const customerQuery = query(collection(db, 'customers'), where('phone', '==', trimmedPhone));
       const customerSnap = await getDocs(customerQuery);
       let customerRef = null;
       let isNewCustomer = false;
       let existingCustomerId = null;
+      let existingCustomerData = null;
 
       if (customerSnap.empty) {
         customerRef = doc(collection(db, 'customers'));
         isNewCustomer = true;
       } else {
         existingCustomerId = customerSnap.docs[0].id;
+        existingCustomerData = customerSnap.docs[0].data();
       }
 
       const saleData: any = {
-        customerName,
-        customerPhone,
+        customerName: trimmedName,
+        customerPhone: trimmedPhone,
         items: selectedItems,
         totalAmount,
         paymentMethod,
@@ -379,16 +394,22 @@ export default function Sales() {
         // Update customer total spent
         if (isNewCustomer && customerRef) {
           transaction.set(customerRef, sanitizeData({
-            name: customerName,
-            phone: customerPhone,
+            name: trimmedName,
+            phone: trimmedPhone,
             totalSpent: totalAmount,
-            lastVisit: new Date().toISOString()
+            lastVisit: new Date().toISOString(),
+            createdAt: new Date().toISOString()
           }));
         } else if (existingCustomerId) {
-          transaction.update(doc(db, 'customers', existingCustomerId), {
+          const updateData: any = {
             totalSpent: increment(totalAmount),
             lastVisit: new Date().toISOString()
-          });
+          };
+          // Update name if different
+          if (existingCustomerData?.name !== trimmedName) {
+            updateData.name = trimmedName;
+          }
+          transaction.update(doc(db, 'customers', existingCustomerId), updateData);
         }
       });
       
@@ -892,15 +913,51 @@ export default function Sales() {
 
             <form onSubmit={handleCreateSale} className="flex-1 overflow-auto p-6 space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-2">
+                <div className="space-y-2 relative">
                   <label className="text-sm font-bold text-slate-700">Tên khách hàng</label>
                   <input 
                     required
                     value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
+                    onChange={(e) => {
+                      setCustomerName(e.target.value);
+                      setIsCustomerDropdownOpen(true);
+                    }}
+                    onFocus={() => setIsCustomerDropdownOpen(true)}
                     className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
                     placeholder="Nguyễn Văn A"
                   />
+                  {isCustomerDropdownOpen && customerName.trim() && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-auto">
+                      {customers
+                        .filter(c => 
+                          c.name.toLowerCase().includes(customerName.toLowerCase()) || 
+                          c.phone.includes(customerName)
+                        )
+                        .map(c => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => {
+                              setCustomerName(c.name);
+                              setCustomerPhone(c.phone);
+                              setIsCustomerDropdownOpen(false);
+                            }}
+                            className="w-full px-4 py-3 text-left hover:bg-slate-50 border-b border-slate-50 last:border-0 transition-colors"
+                          >
+                            <p className="text-sm font-bold text-slate-900">{c.name}</p>
+                            <p className="text-xs text-slate-500">{c.phone}</p>
+                          </button>
+                        ))}
+                      {customers.filter(c => 
+                        c.name.toLowerCase().includes(customerName.toLowerCase()) || 
+                        c.phone.includes(customerName)
+                      ).length === 0 && (
+                        <div className="px-4 py-3 text-sm text-slate-400 italic">
+                          Khách hàng mới
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-slate-700">Số điện thoại</label>
@@ -952,7 +1009,10 @@ export default function Sales() {
                   <div className="space-y-2 max-h-[300px] overflow-auto pr-2">
                     {products
                       .filter(p => p.warehouse === selectedWarehouse)
-                      .filter(p => p.name.toLowerCase().includes(productSearchTerm.toLowerCase()) || p.sku?.toLowerCase().includes(productSearchTerm.toLowerCase()))
+                      .filter(p => 
+                        p.name.toLowerCase().includes(productSearchTerm.toLowerCase()) || 
+                        (p.sku?.toLowerCase() || '').includes(productSearchTerm.toLowerCase())
+                      )
                       .map(p => (
                         <button
                           key={p.id}
