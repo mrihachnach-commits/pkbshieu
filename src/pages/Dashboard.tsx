@@ -29,7 +29,7 @@ import {
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { AuthContext } from '../App';
-import { formatCurrency, cn } from '../lib/utils';
+import { formatCurrency, formatDate, cn } from '../lib/utils';
 import { startOfDay, endOfDay, startOfMonth, endOfMonth, subMonths, format, isSameMonth, subDays } from 'date-fns';
 
 const data = [
@@ -487,7 +487,7 @@ export default function Dashboard() {
                       <p className="text-xs text-slate-500">{order.customerPhone}</p>
                     </td>
                     <td className="py-4 text-slate-500">
-                      {format(new Date(order.date), 'dd/MM/yyyy HH:mm')}
+                      {formatDate(order.date)}
                     </td>
                     <td className="py-4 font-bold text-indigo-600">
                       {formatCurrency(order.totalAmount)}

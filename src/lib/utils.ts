@@ -14,10 +14,13 @@ export function formatCurrency(amount: number) {
 
 export function formatDate(date: Date | string) {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return new Intl.DateTimeFormat('vi-VN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(d);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  
+  return `${hours}h${minutes} ${day}/${month}/${year}`;
 }
 
 export function toLocalISOString(date: Date | string = new Date()) {
