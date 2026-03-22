@@ -112,6 +112,23 @@
         "notes": { "type": "string" }
       },
       "required": ["customerId", "date"]
+    },
+    "ActivityLog": {
+      "title": "Activity Log",
+      "description": "Log of user actions in the system",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "action": { "type": "string", "enum": ["create", "update", "delete", "login", "logout"] },
+        "entityType": { "type": "string", "enum": ["purchase", "sale", "product", "user", "customer", "supplier", "prescription"] },
+        "entityId": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "metadata": { "type": "object" }
+      },
+      "required": ["userId", "action", "entityType", "timestamp"]
     }
   },
   "firestore": {
@@ -121,6 +138,7 @@
     "suppliers": { "schema": "Supplier", "description": "Collection of suppliers" },
     "sales": { "schema": "Sale", "description": "Collection of sales" },
     "purchases": { "schema": "Purchase", "description": "Collection of purchases" },
-    "prescriptions": { "schema": "Prescription", "description": "Collection of eye prescriptions" }
+    "prescriptions": { "schema": "Prescription", "description": "Collection of eye prescriptions" },
+    "activity_logs": { "schema": "ActivityLog", "description": "Collection of activity logs" }
   }
 }

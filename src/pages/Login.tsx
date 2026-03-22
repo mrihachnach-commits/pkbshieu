@@ -3,6 +3,7 @@ import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 
 import { auth } from '../firebase';
 import { Glasses, Lock, Mail, AlertCircle, Chrome } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { logActivity } from '../lib/firestore-utils';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -16,7 +17,17 @@ export default function Login() {
     setLoading(true);
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      
+      // Log activity
+      logActivity(
+        'login',
+        'user',
+        result.user.uid,
+        `Đăng nhập thành công bằng Google: ${result.user.email}`,
+        { method: 'google' }
+      );
+
       navigate('/');
     } catch (err: any) {
       console.error('Google Login Error:', err);
@@ -40,7 +51,17 @@ export default function Login() {
       const normalizedUsername = username.toLowerCase().trim();
       const emailToUse = normalizedUsername === 'admin' ? adminEmail : (username.includes('@') ? username : `${username}@admin.com`);
       
-      await signInWithEmailAndPassword(auth, emailToUse, password);
+      const result = await signInWithEmailAndPassword(auth, emailToUse, password);
+      
+      // Log activity
+      logActivity(
+        'login',
+        'user',
+        result.user.uid,
+        `Đăng nhập thành công: ${result.user.email}`,
+        { method: 'email' }
+      );
+
       navigate('/');
     } catch (err: any) {
       console.error('Login Error:', err);

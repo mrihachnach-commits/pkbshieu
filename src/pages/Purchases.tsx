@@ -47,7 +47,7 @@ import { ref, uploadBytes, getDownloadURL, uploadBytesResumable, getBytes } from
 import { AuthContext } from '../App';
 import { formatCurrency, formatDate, cn, toLocalISOString } from '../lib/utils';
 import { toast } from 'react-hot-toast';
-import { sanitizeData, handleFirestoreError, OperationType } from '../lib/firestore-utils';
+import { sanitizeData, handleFirestoreError, OperationType, logActivity } from '../lib/firestore-utils';
 import { GoogleGenAI, Type } from "@google/genai";
 import * as pdfjsLib from 'pdfjs-dist';
 // @ts-ignore
@@ -582,6 +582,15 @@ export default function Purchases() {
           ];
           
           transaction.update(doc(db, 'purchases', editingPurchase.id), sanitizeData(purchaseData));
+          
+          // Log activity
+          logActivity(
+            'update',
+            'purchase',
+            editingPurchase.id,
+            `Cập nhật đơn nhập hàng từ ${supplierName} - Tổng tiền: ${formatCurrency(totalAmount)}`,
+            { supplierName, totalAmount, warehouse: selectedWarehouse }
+          );
         } else {
           // New Purchase - Cộng số lượng mới và tính lại giá vốn bình quân
           for (const [pid, batch] of itemsByProduct.entries()) {
@@ -616,6 +625,15 @@ export default function Purchases() {
           
           const purchaseRef = doc(collection(db, 'purchases'));
           transaction.set(purchaseRef, sanitizeData(purchaseData));
+          
+          // Log activity
+          logActivity(
+            'create',
+            'purchase',
+            purchaseRef.id,
+            `Tạo mới đơn nhập hàng từ ${supplierName} - Tổng tiền: ${formatCurrency(totalAmount)}`,
+            { supplierName, totalAmount, warehouse: selectedWarehouse }
+          );
         }
       });
 
@@ -642,20 +660,20 @@ export default function Purchases() {
 
     try {
       await runTransaction(db, async (transaction) => {
-        // Check if any items have been consumed (sold)
-        for (const item of deletingPurchase.items) {
-          const currentRemaining = item.remainingQuantity !== undefined ? item.remainingQuantity : item.quantity;
-          if (currentRemaining < item.quantity) {
-            throw new Error(`Không thể xóa đơn nhập hàng vì sản phẩm ${item.productName} đã được bán một phần.`);
-          }
-        }
-
-        // Fetch current products
+        // Fetch current products and check if total stock is enough
         const productSnapshots: { [key: string]: any } = {};
         for (const item of deletingPurchase.items) {
           const snap = await transaction.get(doc(db, 'products', item.productId));
           if (snap.exists()) {
-            productSnapshots[item.productId] = snap.data();
+            const productData = snap.data();
+            productSnapshots[item.productId] = productData;
+            
+            // Check if total stock is enough to subtract the purchase quantity
+            if (productData.stockQuantity < item.quantity) {
+              throw new Error(`Không thể xóa đơn nhập hàng vì tổng tồn kho của ${item.productName} (${productData.stockQuantity}) ít hơn số lượng cần xóa (${item.quantity}).`);
+            }
+          } else {
+            throw new Error(`Sản phẩm ${item.productName} không tồn tại trong kho.`);
           }
         }
 
@@ -668,6 +686,15 @@ export default function Purchases() {
 
         // Delete the document
         transaction.delete(doc(db, 'purchases', deletingPurchase.id));
+        
+        // Log activity
+        logActivity(
+          'delete',
+          'purchase',
+          deletingPurchase.id,
+          `Xóa đơn nhập hàng từ ${deletingPurchase.supplierName} - Tổng tiền: ${formatCurrency(deletingPurchase.totalAmount)}`,
+          { supplierName: deletingPurchase.supplierName, totalAmount: deletingPurchase.totalAmount, warehouse: deletingPurchase.warehouse }
+        );
       });
       
       setDeletingPurchase(null);

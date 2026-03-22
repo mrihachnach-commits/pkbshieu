@@ -14,9 +14,11 @@ import {
   X, 
   Glasses,
   Truck,
-  Settings
+  Settings,
+  History
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { logActivity } from '../lib/firestore-utils';
 
 const navigation = [
   { name: 'Tổng quan', href: '/', icon: LayoutDashboard },
@@ -25,6 +27,7 @@ const navigation = [
   { name: 'Kho hàng', href: '/inventory', icon: Package },
   { name: 'Khách hàng', href: '/customers', icon: UsersIcon },
   { name: 'Thành viên', href: '/users', icon: Settings, roles: ['admin', 'super_admin'] },
+  { name: 'Lịch sử thao tác', href: '/activity-logs', icon: History, roles: ['admin', 'super_admin'] },
   { name: 'Báo cáo', href: '/reports', icon: FileText },
 ];
 
@@ -42,6 +45,14 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleLogout = async () => {
+    if (user) {
+      logActivity(
+        'logout',
+        'user',
+        user.uid,
+        `Đăng xuất thành công: ${user.email}`
+      );
+    }
     await signOut(auth);
     navigate('/login');
   };

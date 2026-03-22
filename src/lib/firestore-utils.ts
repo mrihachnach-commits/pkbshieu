@@ -1,8 +1,8 @@
-import { auth } from '../firebase';
+import { addDoc, collection } from 'firebase/firestore';
+import { db, auth } from '../firebase';
 
 /**
  * Removes undefined values from an object recursively.
- * Firestore does not allow undefined values in documents.
  */
 export function sanitizeData(data: any): any {
   if (data === null || typeof data !== 'object') {
@@ -74,4 +74,31 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   }
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
+}
+
+export async function logActivity(
+  action: 'create' | 'update' | 'delete' | 'login' | 'logout',
+  entityType: 'purchase' | 'sale' | 'product' | 'user' | 'customer' | 'supplier' | 'prescription',
+  entityId: string,
+  details: string,
+  metadata?: any
+) {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    await addDoc(collection(db, 'activity_logs'), {
+      userId: user.uid,
+      userName: user.displayName || 'Anonymous',
+      userEmail: user.email,
+      action,
+      entityType,
+      entityId,
+      details,
+      timestamp: new Date().toISOString(),
+      metadata: metadata || {}
+    });
+  } catch (error) {
+    console.error('Error logging activity:', error);
+  }
 }

@@ -14,7 +14,8 @@ import {
   ShoppingCart,
   History,
   Edit2,
-  Check
+  Check,
+  RefreshCw
 } from 'lucide-react';
 import { 
   collection, 
@@ -32,7 +33,7 @@ import {
 import { db } from '../firebase';
 import { AuthContext } from '../App';
 import { formatCurrency, formatDate, cn } from '../lib/utils';
-import { sanitizeData, handleFirestoreError, OperationType } from '../lib/firestore-utils';
+import { sanitizeData, handleFirestoreError, OperationType, logActivity } from '../lib/firestore-utils';
 
 interface Product {
   id: string;
@@ -269,6 +270,15 @@ export default function Inventory() {
             description: sanitizedData.description || currentData.description || ''
           }));
 
+          // Log activity
+          logActivity(
+            'update',
+            'product',
+            existingDoc.id,
+            `Cập nhật sản phẩm ${sanitizedData.name} - Thêm ${newQty} vào kho`,
+            { productName: sanitizedData.name, addedQty: newQty, totalQty, warehouse: sanitizedData.warehouse }
+          );
+
           // Create a virtual purchase record for the added stock
           const purchaseRef = doc(collection(db, 'purchases'));
           transaction.set(purchaseRef, sanitizeData({
@@ -309,6 +319,15 @@ export default function Inventory() {
             sku: autoSku,
             createdAt: new Date().toISOString()
           }));
+
+          // Log activity
+          logActivity(
+            'create',
+            'product',
+            productRef.id,
+            `Tạo mới sản phẩm ${sanitizedData.name} - SKU: ${autoSku}`,
+            { productName: sanitizedData.name, sku: autoSku, initialQty: newQty, warehouse: sanitizedData.warehouse }
+          );
 
           // Create a virtual purchase record for the new product's initial stock
           const purchaseRef = doc(collection(db, 'purchases'));
@@ -388,12 +407,73 @@ export default function Inventory() {
       await updateDoc(productRef, {
         sellingPrice: Number(newPrice)
       });
+      
+      // Log activity
+      logActivity(
+        'update',
+        'product',
+        selectedProduct.id,
+        `Cập nhật giá bán sản phẩm ${selectedProduct.name} thành ${formatCurrency(Number(newPrice))}`,
+        { productName: selectedProduct.name, newPrice: Number(newPrice) }
+      );
+
       setSelectedProduct({ ...selectedProduct, sellingPrice: Number(newPrice) });
       setIsEditingPrice(false);
     } catch (err: any) {
       console.error('Error updating price:', err);
       setError('Không thể cập nhật giá bán.');
       handleFirestoreError(err, OperationType.UPDATE, 'products');
+    }
+  };
+
+  const [isFixingStock, setIsFixingStock] = useState(false);
+
+  const handleFixStock = async (product: Product) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn tính toán lại tồn kho cho sản phẩm ${product.name}? Hệ thống sẽ đồng bộ số lượng tồn kho với các lô hàng nhập hiện có.`)) return;
+    
+    setIsFixingStock(true);
+    try {
+      const purchaseQuery = query(
+        collection(db, 'purchases'),
+        where('status', '==', 'completed')
+      );
+      const purchaseSnap = await getDocs(purchaseQuery);
+      
+      let totalRemaining = 0;
+      purchaseSnap.docs.forEach(doc => {
+        const data = doc.data();
+        // Only count purchases for the same warehouse
+        const pWarehouse = data.warehouse || 'general';
+        if (pWarehouse === product.warehouse) {
+          data.items?.forEach((item: any) => {
+            if (item.productId === product.id) {
+              totalRemaining += (item.remainingQuantity !== undefined ? item.remainingQuantity : item.quantity || 0);
+            }
+          });
+        }
+      });
+
+      await updateDoc(doc(db, 'products', product.id), {
+        stockQuantity: totalRemaining
+      });
+
+      // Log activity
+      logActivity(
+        'update',
+        'product',
+        product.id,
+        `Tính toán lại tồn kho sản phẩm ${product.name} - Số lượng mới: ${totalRemaining}`,
+        { productName: product.name, oldQty: product.stockQuantity, newQty: totalRemaining }
+      );
+
+      setSelectedProduct({ ...product, stockQuantity: totalRemaining });
+      setError(null);
+      alert('Đã cập nhật lại tồn kho thành công!');
+    } catch (err: any) {
+      console.error('Error fixing stock:', err);
+      setError('Không thể cập nhật lại tồn kho: ' + err.message);
+    } finally {
+      setIsFixingStock(false);
     }
   };
 
@@ -824,9 +904,21 @@ export default function Inventory() {
                     <p className="text-xs text-slate-500">SKU: {selectedProduct.sku}</p>
                     <div className="flex items-center gap-2">
                       <span className="w-1 h-1 rounded-full bg-slate-300" />
-                      <p className="text-xs font-bold text-indigo-600">
-                        Hàng trong kho: {selectedProduct.stockQuantity}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className={`text-xs font-bold ${selectedProduct.stockQuantity < 0 ? 'text-rose-600 animate-pulse' : 'text-indigo-600'}`}>
+                          Hàng trong kho: {selectedProduct.stockQuantity}
+                        </p>
+                        {(role === 'admin' || role === 'manager') && (
+                          <button
+                            onClick={() => handleFixStock(selectedProduct)}
+                            disabled={isFixingStock}
+                            className="p-1 text-amber-600 hover:bg-amber-50 rounded transition-colors"
+                            title="Tính toán lại tồn kho từ các lô hàng"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 ${isFixingStock ? 'animate-spin' : ''}`} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="w-1 h-1 rounded-full bg-slate-300" />

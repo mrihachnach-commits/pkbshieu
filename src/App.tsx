@@ -12,6 +12,7 @@ import Inventory from './pages/Inventory';
 import Customers from './pages/Customers';
 import Users from './pages/Users';
 import Reports from './pages/Reports';
+import ActivityLogs from './pages/ActivityLogs';
 import Layout from './components/Layout';
 import AuthGuard from './components/AuthGuard';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -131,6 +132,7 @@ export default function App() {
               <Route path="/customers" element={<Customers />} />
               <Route path="/users" element={<Users />} />
               <Route path="/reports" element={<Reports />} />
+              <Route path="/activity-logs" element={<ActivityLogs />} />
             </Route>
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>

@@ -30,7 +30,7 @@ import firebaseConfig from '../../firebase-applet-config.json';
 import { db } from '../firebase';
 import { AuthContext } from '../App';
 import { cn } from '../lib/utils';
-import { sanitizeData } from '../lib/firestore-utils';
+import { sanitizeData, logActivity } from '../lib/firestore-utils';
 import { AlertTriangle, RefreshCw, Key } from 'lucide-react';
 
 interface UserData {
@@ -92,6 +92,15 @@ export default function Users() {
       
       if (editingUser) {
         await updateDoc(doc(db, 'users', editingUser.uid), sanitizedData);
+        
+        // Log activity
+        logActivity(
+          'update',
+          'user',
+          editingUser.uid,
+          `Cập nhật thông tin người dùng ${sanitizedData.displayName || sanitizedData.email}`,
+          { email: sanitizedData.email, role: sanitizedData.role }
+        );
       } else {
         if (!password || password.length < 6) {
           return alert('Mật khẩu phải có nhất 6 ký tự');
@@ -113,6 +122,15 @@ export default function Users() {
           
           await setDoc(doc(db, 'users', newUser.uid), newUserData);
           
+          // Log activity
+          logActivity(
+            'create',
+            'user',
+            newUser.uid,
+            `Tạo mới người dùng ${newUserData.displayName || newUserData.email}`,
+            { email: newUserData.email, role: newUserData.role }
+          );
+
           // Sign out from secondary app to clean up
           await signOut(secondaryAuth);
         } catch (authError: any) {
@@ -192,6 +210,16 @@ export default function Users() {
 
     try {
       await deleteDoc(doc(db, 'users', deletingUser.uid));
+      
+      // Log activity
+      logActivity(
+        'delete',
+        'user',
+        deletingUser.uid,
+        `Xóa người dùng ${deletingUser.displayName || deletingUser.email}`,
+        { email: deletingUser.email, role: deletingUser.role }
+      );
+
       setDeletingUser(null);
     } catch (error) {
       console.error(error);
@@ -231,6 +259,15 @@ export default function Users() {
         console.log(`Successfully reset collection: ${collectionName}`);
       }
       
+      // Log activity
+      logActivity(
+        'delete',
+        'product', // Using product as a generic entity type for reset
+        'all',
+        'Xóa toàn bộ dữ liệu kinh doanh (Reset Database)',
+        { collections: collectionsToReset }
+      );
+
       alert('Đã xóa toàn bộ dữ liệu kinh doanh thành công.');
       setIsResetModalOpen(false);
     } catch (error: any) {

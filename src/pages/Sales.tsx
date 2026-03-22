@@ -38,7 +38,7 @@ import {
 import { db } from '../firebase';
 import { AuthContext } from '../App';
 import { formatCurrency, formatDate, cn, toLocalISOString } from '../lib/utils';
-import { sanitizeData } from '../lib/firestore-utils';
+import { sanitizeData, logActivity } from '../lib/firestore-utils';
 
 interface SaleItem {
   productId: string;
@@ -309,9 +309,15 @@ export default function Sales() {
             remainingToConsume -= consume;
           }
 
-          // Check if we have enough stock
+          // Check if we have enough stock in aggregate
+          const currentStock = productData?.stockQuantity || 0;
+          if (currentStock < Number(item.quantity)) {
+            throw new Error(`Không đủ hàng trong kho cho sản phẩm ${item.productName}. Tổng tồn kho (${currentStock}) ít hơn số lượng cần bán (${item.quantity}).`);
+          }
+
+          // Check if we have enough stock in lots
           if (remainingToConsume > 0) {
-            throw new Error(`Không đủ hàng trong kho cho sản phẩm ${item.productName}. Còn thiếu ${remainingToConsume} sản phẩm.`);
+            throw new Error(`Không đủ hàng trong kho cho sản phẩm ${item.productName}. Còn thiếu ${remainingToConsume} sản phẩm trong các lô hàng.`);
           }
 
           itemsWithFIFO.push({
@@ -346,9 +352,27 @@ export default function Sales() {
             user: user?.email
           }];
           transaction.update(doc(db, 'sales', editingSale.id), sanitizeData({ ...finalSaleData, history, updatedBy: user?.uid }));
+          
+          // Log activity
+          logActivity(
+            'update',
+            'sale',
+            editingSale.id,
+            `Cập nhật đơn bán hàng cho ${customerName} - Tổng tiền: ${formatCurrency(totalAmount)}`,
+            { customerName, totalAmount, warehouse: selectedWarehouse }
+          );
         } else {
           const saleRef = doc(collection(db, 'sales'));
           transaction.set(saleRef, sanitizeData(finalSaleData));
+          
+          // Log activity
+          logActivity(
+            'create',
+            'sale',
+            saleRef.id,
+            `Tạo mới đơn bán hàng cho ${customerName} - Tổng tiền: ${formatCurrency(totalAmount)}`,
+            { customerName, totalAmount, warehouse: selectedWarehouse }
+          );
         }
 
         // Update customer total spent
@@ -464,6 +488,15 @@ export default function Sales() {
 
         // Delete the document
         transaction.delete(doc(db, 'sales', deletingSale.id));
+        
+        // Log activity
+        logActivity(
+          'delete',
+          'sale',
+          deletingSale.id,
+          `Xóa đơn bán hàng của ${deletingSale.customerName} - Tổng tiền: ${formatCurrency(deletingSale.totalAmount)}`,
+          { customerName: deletingSale.customerName, totalAmount: deletingSale.totalAmount, warehouse: deletingSale.warehouse }
+        );
       });
       
       setDeletingSale(null);

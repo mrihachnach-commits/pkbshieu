@@ -130,6 +130,14 @@ service cloud.firestore {
              data.date is string;
     }
 
+    function isValidActivityLog(data) {
+      return data.keys().hasAll(['userId', 'action', 'entityType', 'timestamp']) &&
+             data.userId is string &&
+             data.action in ['create', 'update', 'delete', 'login', 'logout'] &&
+             data.entityType in ['purchase', 'sale', 'product', 'user', 'customer', 'supplier', 'prescription'] &&
+             data.timestamp is string;
+    }
+
     // Rules
     match /users/{userId} {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin() || isSuperAdmin());
@@ -151,7 +159,7 @@ service cloud.firestore {
       allow update: if isAuthenticated() && canEditWarehouse(resource.data.warehouse) &&
                     canEditWarehouse(request.resource.data.warehouse) &&
                     isValidProduct(request.resource.data);
-      allow delete: if isAdmin();
+      allow delete: if canEditWarehouse(resource.data.warehouse);
     }
 
     match /customers/{customerId} {
@@ -175,7 +183,7 @@ service cloud.firestore {
       allow update: if isAuthenticated() && canEditWarehouse(resource.data.warehouse) &&
                     canEditWarehouse(request.resource.data.warehouse) &&
                     isValidSale(request.resource.data);
-      allow delete: if isAdmin();
+      allow delete: if canEditWarehouse(resource.data.warehouse);
     }
 
     match /purchases/{purchaseId} {
@@ -185,7 +193,7 @@ service cloud.firestore {
       allow update: if isAuthenticated() && canEditWarehouse(resource.data.warehouse) &&
                     canEditWarehouse(request.resource.data.warehouse) &&
                     isValidPurchase(request.resource.data);
-      allow delete: if isAdmin();
+      allow delete: if canEditWarehouse(resource.data.warehouse);
     }
     
     match /prescriptions/{prescriptionId} {
@@ -193,6 +201,12 @@ service cloud.firestore {
       allow create: if isAuthenticated() && isValidPrescription(request.resource.data);
       allow update: if isAuthenticated() && (isAdmin() || isSuperAdmin() || isManager()) && isValidPrescription(request.resource.data);
       allow delete: if isAdmin();
+    }
+
+    match /activity_logs/{logId} {
+      allow read: if isAdmin() || isSuperAdmin();
+      allow create: if isAuthenticated() && isValidActivityLog(request.resource.data);
+      allow update, delete: if false;
     }
     
     match /_connection_test_/{docId} {

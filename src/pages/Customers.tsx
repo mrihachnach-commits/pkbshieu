@@ -25,7 +25,7 @@ import {
 import { db } from '../firebase';
 import { AuthContext } from '../App';
 import { formatDate, cn } from '../lib/utils';
-import { sanitizeData } from '../lib/firestore-utils';
+import { sanitizeData, logActivity } from '../lib/firestore-utils';
 
 interface Customer {
   id: string;
@@ -126,6 +126,16 @@ export default function Customers() {
     try {
       if (editingCustomer) {
         await updateDoc(doc(db, 'customers', editingCustomer.id), sanitizeData(customerForm));
+        
+        // Log activity
+        logActivity(
+          'update',
+          'customer',
+          editingCustomer.id,
+          `Cập nhật thông tin khách hàng ${customerForm.name}`,
+          { name: customerForm.name, phone: customerForm.phone }
+        );
+
         setSelectedCustomer({ ...selectedCustomer!, ...customerForm });
       } else {
         const docRef = await addDoc(collection(db, 'customers'), sanitizeData({
@@ -133,6 +143,16 @@ export default function Customers() {
           totalSpent: 0,
           createdAt: new Date().toISOString()
         }));
+
+        // Log activity
+        logActivity(
+          'create',
+          'customer',
+          docRef.id,
+          `Thêm mới khách hàng ${customerForm.name}`,
+          { name: customerForm.name, phone: customerForm.phone }
+        );
+
         setSelectedCustomer({ id: docRef.id, ...customerForm, totalSpent: 0, lastVisit: '' });
       }
       setIsCustomerModalOpen(false);
@@ -163,12 +183,30 @@ export default function Customers() {
     try {
       if (editingPrescription) {
         await updateDoc(doc(db, 'prescriptions', editingPrescription.id), sanitizeData(prescriptionForm));
+        
+        // Log activity
+        logActivity(
+          'update',
+          'prescription',
+          editingPrescription.id,
+          `Cập nhật đơn kính cho khách hàng ${selectedCustomer.name}`,
+          { customerName: selectedCustomer.name, customerId: selectedCustomer.id }
+        );
       } else {
-        await addDoc(collection(db, 'prescriptions'), sanitizeData({
+        const docRef = await addDoc(collection(db, 'prescriptions'), sanitizeData({
           ...prescriptionForm,
           customerId: selectedCustomer.id,
           date: new Date().toISOString()
         }));
+
+        // Log activity
+        logActivity(
+          'create',
+          'prescription',
+          docRef.id,
+          `Thêm mới đơn kính cho khách hàng ${selectedCustomer.name}`,
+          { customerName: selectedCustomer.name, customerId: selectedCustomer.id }
+        );
       }
       setIsPrescriptionModalOpen(false);
       setEditingPrescription(null);
