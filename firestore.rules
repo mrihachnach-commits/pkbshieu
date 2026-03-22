@@ -152,6 +152,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /settings/gemini {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
     match /products/{productId} {
       allow read: if isAuthenticated() && canAccessWarehouse(resource.data.warehouse);
       allow create: if isAuthenticated() && canAccessWarehouse(request.resource.data.warehouse) &&

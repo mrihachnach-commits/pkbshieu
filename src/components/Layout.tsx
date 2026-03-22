@@ -15,7 +15,8 @@ import {
   Glasses,
   Truck,
   Settings,
-  History
+  History,
+  Shield
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { logActivity } from '../lib/firestore-utils';
@@ -26,8 +27,9 @@ const navigation = [
   { name: 'Nhập hàng', href: '/purchases', icon: Truck },
   { name: 'Kho hàng', href: '/inventory', icon: Package },
   { name: 'Khách hàng', href: '/customers', icon: UsersIcon },
-  { name: 'Thành viên', href: '/users', icon: Settings, roles: ['admin', 'super_admin'] },
+  { name: 'Thành viên', href: '/users', icon: Shield, roles: ['admin', 'super_admin'] },
   { name: 'Lịch sử thao tác', href: '/activity-logs', icon: History, roles: ['admin', 'super_admin'] },
+  { name: 'Cài đặt', href: '/settings', icon: Settings, roles: ['admin', 'super_admin'] },
   { name: 'Báo cáo', href: '/reports', icon: FileText },
 ];
 

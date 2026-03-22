@@ -129,6 +129,15 @@
         "metadata": { "type": "object" }
       },
       "required": ["userId", "action", "entityType", "timestamp"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "System settings and configurations",
+      "type": "object",
+      "properties": {
+        "apiKey": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "firestore": {
@@ -139,6 +148,7 @@
     "sales": { "schema": "Sale", "description": "Collection of sales" },
     "purchases": { "schema": "Purchase", "description": "Collection of purchases" },
     "prescriptions": { "schema": "Prescription", "description": "Collection of eye prescriptions" },
-    "activity_logs": { "schema": "ActivityLog", "description": "Collection of activity logs" }
+    "activity_logs": { "schema": "ActivityLog", "description": "Collection of activity logs" },
+    "settings": { "schema": "Settings", "description": "Collection of system settings" }
   }
 }

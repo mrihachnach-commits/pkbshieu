@@ -36,6 +36,7 @@ import {
   query, 
   orderBy,
   where,
+  getDoc,
   getDocs,
   increment,
   deleteDoc,
@@ -95,6 +96,22 @@ export default function Purchases() {
   const [viewingInvoice, setViewingInvoice] = useState<string | null>(null);
   const [detailThumbnails, setDetailThumbnails] = useState<string[]>([]);
   const [isGeneratingThumbnails, setIsGeneratingThumbnails] = useState(false);
+  const [geminiApiKey, setGeminiApiKey] = useState<string | null>(null);
+
+  // Fetch Gemini API Key from settings
+  useEffect(() => {
+    const fetchGeminiKey = async () => {
+      try {
+        const docSnap = await getDoc(doc(db, 'settings', 'gemini'));
+        if (docSnap.exists()) {
+          setGeminiApiKey(docSnap.data().apiKey || null);
+        }
+      } catch (error) {
+        console.error('Error fetching Gemini API key:', error);
+      }
+    };
+    fetchGeminiKey();
+  }, []);
 
   // Generate thumbnails for selected purchase
   useEffect(() => {
@@ -822,7 +839,11 @@ export default function Purchases() {
     
     setIsScanning(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const apiKeyToUse = geminiApiKey || process.env.GEMINI_API_KEY;
+      if (!apiKeyToUse) {
+        throw new Error('Chưa cấu hình Gemini API Key. Vui lòng vào phần Cài đặt để thiết lập.');
+      }
+      const ai = new GoogleGenAI({ apiKey: apiKeyToUse });
       
       const imageParts = invoiceImages.map(img => ({
         inlineData: {
